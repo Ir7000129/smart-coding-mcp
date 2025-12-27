@@ -82,6 +82,35 @@ Add to your MCP configuration file (e.g., `~/.config/claude/mcp.json` or similar
 }
 ```
 
+### Option 4: Configuration via Environment Variables
+
+Override settings without a config.json file:
+
+```json
+{
+  "mcpServers": {
+    "smart-coding-mcp": {
+      "command": "smart-coding-mcp",
+      "args": ["--workspace", "/path/to/project"],
+      "env": {
+        "SMART_CODING_VERBOSE": "true",
+        "SMART_CODING_BATCH_SIZE": "200",
+        "SMART_CODING_MAX_FILE_SIZE": "2097152"
+      }
+    }
+  }
+}
+```
+
+**Supported environment variables:**
+
+- `SMART_CODING_VERBOSE` - Show detailed logs (true/false)
+- `SMART_CODING_BATCH_SIZE` - Files to process in parallel (default: 100)
+- `SMART_CODING_MAX_FILE_SIZE` - Max file size in bytes (default: 1048576)
+- `SMART_CODING_CHUNK_SIZE` - Lines per chunk (default: 15)
+- `SMART_CODING_MAX_RESULTS` - Max search results (default: 5)
+- `SMART_CODING_SMART_INDEXING` - Enable smart detection (true/false, default: true)
+
 **Note**: The server starts instantly and indexes in the background, so your IDE won't be blocked waiting for indexing to complete.
 
 ## Available Tools
