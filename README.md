@@ -169,37 +169,6 @@ The server indexes your code in four steps:
 
 When you search, your query is converted to the same vector format and compared against all code chunks using cosine similarity. The most relevant matches are returned.
 
-## Configuration
-
-The server works out of the box with sensible defaults. Create a `config.json` file in your workspace to customize:
-
-```json
-{
-  "searchDirectory": ".",
-  "fileExtensions": ["js", "ts", "py", "java", "go"],
-  "excludePatterns": ["**/my-custom-ignore/**"],
-  "smartIndexing": true,
-  "verbose": false,
-  "enableCache": true,
-  "cacheDirectory": "./.smart-coding-cache",
-  "watchFiles": true,
-  "chunkSize": 15,
-  "batchSize": 100,
-  "maxFileSize": 1048576,
-  "maxResults": 5
-}
-```
-
-**Key options:**
-
-- `smartIndexing`: Enable automatic project type detection and smart ignore patterns (default: true)
-- `verbose`: Show detailed indexing logs (default: false)
-- `watchFiles`: Automatically reindex when files change (default: true)
-- `enableCache`: Cache embeddings to disk (default: true)
-- `chunkSize`: Lines of code per chunk - smaller = more precise, larger = more context (default: 15)
-- `batchSize`: Number of files to process in parallel (default: 100)
-- `maxFileSize`: Skip files larger than this size in bytes (default: 1MB)
-
 ## Examples
 
 **Natural language search:**
