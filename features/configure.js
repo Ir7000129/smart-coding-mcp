@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
+import { saveGlobalConfig } from "../lib/config.js";
 
 export class Configure {
     constructor(config) {
@@ -8,47 +8,28 @@ export class Configure {
     }
 
     async configure(newPath, settings = {}) {
+        const targetDir = path.resolve(newPath);
+
         // Validate path
         try {
-            await fs.access(newPath);
+            await fs.access(targetDir);
         } catch {
-            return { success: false, message: `Invalid path: ${newPath}. Directory does not exist.` };
+            return { success: false, message: `Invalid path: ${targetDir}. Directory does not exist.` };
         }
 
-        // Determine config file location
-        // Logic mirrored from loadConfig to find the global config.json
-        const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-        const baseDir = path.resolve(scriptDir, '..');
-        const configPath = path.join(baseDir, "config.json");
+        // Save settings to Encapsulated Project Config (.smart-coding-cache/config.json)
+        // We reuse the saveGlobalConfig function because it now targets the project-local storage
+        const success = await saveGlobalConfig(settings, targetDir);
 
-        let userConfig = {};
-        try {
-            const configData = await fs.readFile(configPath, "utf-8");
-            userConfig = JSON.parse(configData);
-        } catch {
-            // Ignore, start fresh
-        }
-
-        // Update config
-        userConfig.searchDirectory = newPath; // This is effectively the workspace path for the server logic
-        userConfig.cacheDirectory = path.join(newPath, ".smart-coding-cache");
-
-        // Apply optional settings
-        if (settings.workerThreads !== undefined) userConfig.workerThreads = settings.workerThreads;
-        if (settings.watchFiles !== undefined) userConfig.watchFiles = settings.watchFiles;
-
-        // Save to global config.json
-        try {
-            await fs.writeFile(configPath, JSON.stringify(userConfig, null, 2), "utf-8");
+        if (success) {
             return {
                 success: true,
-                message: `Configuration saved for workspace: ${newPath}. Settings: ${JSON.stringify(settings)}. Please reload the window/server to apply changes.`
+                message: `Configuration saved to encapsulated project folder: ${path.join(targetDir, '.smart-coding-cache', 'config.json')}. Settings updated: ${JSON.stringify(settings)}`
             };
-        } catch (error) {
-            console.error(`[Configure] Failed to save config: ${error.message}`);
+        } else {
             return {
                 success: false,
-                message: `Failed to save config: ${error.message}`
+                message: `Failed to save configuration to encapsulated project folder.`
             };
         }
     }
@@ -57,7 +38,7 @@ export class Configure {
 export function getToolDefinition(config) {
     return {
         name: "configure_workspace",
-        description: "Dynamically configures the workspace path and performance settings. Use this if the server started in the wrong directory or is causing performance issues. Updates the global configuration file.",
+        description: "Dynamically configures the workspace path and performance settings. Updates the encapsulated configuration file in your project's .smart-coding-cache directory.",
         inputSchema: {
             type: "object",
             properties: {

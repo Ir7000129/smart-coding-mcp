@@ -624,7 +624,11 @@ export class CodebaseIndexer {
     if (this.isIndexing) {
       console.error("[Watcher] Indexing in progress, deferring change queue processing");
       // Re-schedule after a delay
-      this.debounceTimer = setTimeout(() => this.processChangeQueue(), this.DEBOUNCE_DELAY);
+      this.debounceTimer = setTimeout(() => {
+        void this.processChangeQueue().catch(err => {
+          console.error(`[Watcher] Background queue processing error: ${err.message}`);
+        });
+      }, this.DEBOUNCE_DELAY);
       return;
     }
 
@@ -676,7 +680,9 @@ export class CodebaseIndexer {
     if (Date.now() - this.firstChangeTimestamp > this.MAX_WAIT) {
       console.error(`[Watcher] Max wait time reached (${this.MAX_WAIT}ms), forcing update...`);
       // Don't await - let it run in background, but the guard will prevent races
-      this.processChangeQueue();
+      void this.processChangeQueue().catch(err => {
+        console.error(`[Watcher] Background queue processing error: ${err.message}`);
+      });
       return;
     }
 
@@ -686,7 +692,9 @@ export class CodebaseIndexer {
     console.error(`[Watcher] Change detected: ${path.basename(filePath)} (queued, waiting for ${this.DEBOUNCE_DELAY / 1000}s silence)`);
 
     this.debounceTimer = setTimeout(() => {
-      this.processChangeQueue();
+      void this.processChangeQueue().catch(err => {
+        console.error(`[Watcher] Background queue processing error: ${err.message}`);
+      });
     }, this.DEBOUNCE_DELAY);
   }
 
@@ -705,12 +713,16 @@ export class CodebaseIndexer {
     this.watcher
       .on("add", (filePath) => this.queueFileChange(filePath))
       .on("change", (filePath) => this.queueFileChange(filePath))
-      .on("unlink", (filePath) => {
+      .on("unlink", async (filePath) => {
         const fullPath = path.join(this.config.searchDirectory, filePath);
         console.error(`[Watcher] File deleted: ${filePath} (removing immediately)`);
         this.cache.removeFileFromStore(fullPath);
         this.cache.deleteFileHash(fullPath);
-        this.cache.save();
+        try {
+          await this.cache.save();
+        } catch (err) {
+          console.error(`[Watcher] Failed to save cache after deletion: ${err.message}`);
+        }
         // Also remove from queue if it was pending
         this.changeQueue.delete(fullPath);
       });

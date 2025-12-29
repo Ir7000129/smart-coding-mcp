@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { pipeline } from "@xenova/transformers";
 import fs from "fs/promises";
+import path from "path";
 import { createRequire } from "module";
 
 // Import package.json for version
@@ -20,9 +21,26 @@ import * as HybridSearchFeature from "./features/hybrid-search.js";
 import * as ClearCacheFeature from "./features/clear-cache.js";
 import * as ConfigureFeature from "./features/configure.js";
 
-// Parse workspace from command line arguments
-// Parse workspace from command line arguments
+// Parse arguments
 const args = process.argv.slice(2);
+
+// Handle help flag
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`
+Smart Coding MCP v${packageJson.version}
+Usage: npx smart-coding-mcp [options]
+
+Options:
+  --workspace <path>    Set the active workspace directory (default: current directory)
+  --help, -h            Show this help message
+
+Environment Variables:
+  SMART_CODING_VERBOSE=true          Enable verbose logging
+  SMART_CODING_WATCH_FILES=true      Enable file watching
+  `);
+  process.exit(0);
+}
+
 const workspaceIndex = args.findIndex(arg => arg.startsWith('--workspace'));
 let workspaceDir = process.cwd();
 
@@ -31,26 +49,18 @@ if (workspaceIndex !== -1) {
   let rawWorkspace = null;
 
   if (arg.includes('=')) {
-    rawWorkspace = arg.split('=')[1];
+    rawWorkspace = arg.substring(arg.indexOf('=') + 1);
   } else if (workspaceIndex + 1 < args.length) {
     rawWorkspace = args[workspaceIndex + 1];
   }
 
-  // Check if IDE variable wasn't expanded (contains ${})
-  if (rawWorkspace && rawWorkspace.includes('${')) {
-    console.error(`[Server] WARNING: Workspace variable "${rawWorkspace}" was not expanded by your IDE.`);
-    console.error(`[Server] The server will default to the current working directory: ${process.cwd()}`);
-    console.error(`[Server] You can use the 'configure_workspace' tool to set the correct path dynamically.`);
-    // Do NOT exit, fall back to default
-    workspaceDir = process.cwd();
-  } else if (rawWorkspace) {
-    workspaceDir = rawWorkspace;
-  }
-
-  if (workspaceDir) {
-    console.error(`[Server] Workspace mode: ${workspaceDir}`);
+  // Check if IDE variable was expanded, otherwise use provided path
+  if (rawWorkspace && !rawWorkspace.includes('${')) {
+    workspaceDir = path.resolve(process.cwd(), rawWorkspace);
   }
 }
+
+console.error(`[Server] Active Workspace: ${workspaceDir}`);
 
 // Global state
 let embedder = null;

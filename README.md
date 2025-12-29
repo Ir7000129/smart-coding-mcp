@@ -11,7 +11,7 @@ An extensible Model Context Protocol (MCP) server that provides intelligent sema
 
 AI coding assistants work better when they can find relevant code quickly. Traditional keyword search falls short - if you ask "where do we handle authentication?" but your code uses "login" and "session", keyword search misses it.
 
-This MCP server solves that by indexing your codebase with AI embeddings. Your AI assistant can search by meaning instead of exact keywords, finding relevant code even when the terminology differs.
+This MCP server solves that by indexing your codebase with AI embeddings. Your AI assistant can search by meaning instead of exact keywords, finding relevant code even when the terminology differs. **Zero-configuration required—just run it and it works.**
 
 ![Example](example.png)
 
@@ -43,6 +43,12 @@ Install globally via npm:
 npm install -g smart-coding-mcp
 ```
 
+Or run directly without installation using `npx`:
+
+```bash
+npx smart-coding-mcp
+```
+
 To update to the latest version:
 
 ```bash
@@ -63,22 +69,22 @@ Add to your MCP configuration file. The location depends on your IDE and OS:
 
 Add the server configuration to the `mcpServers` object in your config file:
 
-### Option 1: Auto-Detection (Recommended)
+### Option 1: Zero-Config (Recommended)
 
-Use the `${workspaceFolder}` variable for automatic project detection:
+The simplest way to use the server is via `npx`. This ensures you always have the latest version and requires zero manual setup:
 
 ```json
 {
   "mcpServers": {
     "smart-coding-mcp": {
-      "command": "smart-coding-mcp",
-      "args": []
+      "command": "npx",
+      "args": ["-y", "smart-coding-mcp"]
     }
   }
 }
 ```
 
-By default, the server indexes the directory it is started in (process.cwd). Most clients (VS Code, Cascade) start MCP servers in the workspace root automatically, so no arguments are needed!
+By default, the server indexes the directory it is started in (`process.cwd()`). Most clients (VS Code, Cascade, Antigravity) start MCP servers in the workspace root automatically, so it works out of the box!
 
 If you prefer to be explicit or if your client starts the server elsewhere:
 
@@ -105,8 +111,8 @@ If you prefer to be explicit or if your client starts the server elsewhere:
 **Why this is better:**
 
 - **Auto-Detection**: When you switch between different projects, your IDE automatically sends the new path to the MCP.
-- **Local Cache**: The MCP correctly creates the `.smart-coding-cache` folder inside the project you are actually working on.
-- **No Manual Updates**: You don't have to change your config every time you open a new project.
+- **Local & Hidden Cache**: The MCP automatically creates the `.smart-coding-cache` folder inside your project. On Windows, this folder is marked as **Hidden** to keep your file tree clean.
+- **Zero-Touch setup**: You don't have to change your config every time you open a new project.
 
 ### Option 2: Absolute Path
 
@@ -145,6 +151,14 @@ Use this option ONLY if you need to search code from *another* project while wor
     }
   }
 }
+```
+
+### Troubleshooting & CLI
+
+To see all available options and environment variables, you can run the server with the `--help` flag:
+
+```bash
+npx smart-coding-mcp --help
 ```
 
 ## Environment Variables
