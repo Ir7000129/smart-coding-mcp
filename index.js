@@ -201,7 +201,8 @@ server.setRequestHandler(InitializeRequestSchema, async (request) => {
     console.error(`[Server] Auto-detected workspace: ${rootPath}`);
 
     readyPromise = initialize(rootPath).catch(err => {
-      console.error(`[Server] Init failed: ${err.message}`);
+      console.error(`[Server] Critical initialization failure: ${err.message}`);
+      process.exit(1);
     });
   }
 
