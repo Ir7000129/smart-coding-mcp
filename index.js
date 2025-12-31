@@ -18,6 +18,7 @@ import { HybridSearch } from "./features/hybrid-search.js";
 import * as IndexCodebaseFeature from "./features/index-codebase.js";
 import * as HybridSearchFeature from "./features/hybrid-search.js";
 import * as ClearCacheFeature from "./features/clear-cache.js";
+import * as CheckLastVersionFeature from "./features/check-last-version.js";
 
 // Parse workspace from command line arguments
 const args = process.argv.slice(2);
@@ -70,6 +71,11 @@ const features = [
     module: ClearCacheFeature,
     instance: null,
     handler: ClearCacheFeature.handleToolCall
+  },
+  {
+    module: CheckLastVersionFeature,
+    instance: null,
+    handler: CheckLastVersionFeature.handleToolCall
   }
 ];
 
@@ -98,11 +104,13 @@ async function initialize() {
   indexer = new CodebaseIndexer(embedder, cache, config, server);
   hybridSearch = new HybridSearch(embedder, cache, config);
   const cacheClearer = new ClearCacheFeature.CacheClearer(embedder, cache, config, indexer);
+  const versionChecker = new CheckLastVersionFeature.VersionChecker(config);
 
   // Store feature instances (matches features array order)
   features[0].instance = hybridSearch;
   features[1].instance = indexer;
   features[2].instance = cacheClearer;
+  features[3].instance = versionChecker;
 
   // Start indexing in background (non-blocking)
   console.error("[Server] Starting background indexing...");

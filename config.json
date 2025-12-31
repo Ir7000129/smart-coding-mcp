@@ -47,7 +47,8 @@
     "**/.next/**",
     "**/target/**",
     "**/vendor/**",
-    "**/.smart-coding-cache/**"
+    "**/.smart-coding-cache/**",
+    "**/*.rdb"
   ],
   "smartIndexing": true,
   "chunkSize": 25,
