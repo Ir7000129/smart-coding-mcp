@@ -7,6 +7,15 @@
 
 An extensible Model Context Protocol (MCP) server that provides intelligent semantic code search for AI assistants. Built with local AI models (RAG), inspired by Cursor's semantic search research.
 
+### Available Tools
+
+| Tool                   | Description                                       | Example                                        |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| `semantic_search`      | Find code by meaning, not just keywords           | `"Where do we validate user input?"`           |
+| `index_codebase`       | Manually trigger reindexing                       | Use after major refactoring or branch switches |
+| `clear_cache`          | Reset the embeddings cache                        | Useful when cache becomes corrupted            |
+| `d_check_last_version` | Get latest version of any package (20 ecosystems) | `"express"`, `"npm:react"`, `"pip:requests"`   |
+
 ## What This Does
 
 AI coding assistants work better when they can find relevant code quickly. Traditional keyword search falls short - if you ask "where do we handle authentication?" but your code uses "login" and "session", keyword search misses it.
@@ -130,21 +139,6 @@ Override configuration settings via environment variables in your MCP config:
 ```
 
 **Note**: The server starts instantly and indexes in the background, so your IDE won't be blocked waiting for indexing to complete.
-
-## Smart Coding MCP
-
-### Available Tools
-
-| Tool                   | Description                             | Example                                        |
-| ---------------------- | --------------------------------------- | ---------------------------------------------- |
-| `semantic_search`      | Find code by meaning, not just keywords | `"Where do we validate user input?"`           |
-| `index_codebase`       | Manually trigger reindexing             | Use after major refactoring or branch switches |
-| `clear_cache`          | Reset the embeddings cache              | Useful when cache becomes corrupted            |
-| `d_check_last_version` | Get latest version of any package       | `"express"`, `"npm:react"`, `"pip:requests"`   |
-
-### Supported Package Ecosystems (20)
-
-npm, PyPI, Packagist, Crates.io, Maven, Go, RubyGems, NuGet, CocoaPods, Hex, CRAN, CPAN, pub.dev, Homebrew, Conda, Clojars, Hackage, Julia, Swift PM, Chocolatey
 
 ## How It Works
 
