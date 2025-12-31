@@ -9,20 +9,22 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { pipeline } from '@xenova/transformers';
+import { createEmbedder } from '../lib/mrl-embedder.js';
 import { cosineSimilarity } from '../lib/utils.js';
 import { loadConfig } from '../lib/config.js';
 
 describe('Local Embedding Model', () => {
   let embedder;
   let config;
+  let expectedDimension;
   
   beforeAll(async () => {
     config = await loadConfig();
     console.log(`[Test] Loading embedding model: ${config.embeddingModel}`);
-    embedder = await pipeline('feature-extraction', config.embeddingModel);
-    console.log('[Test] Embedding model loaded successfully');
-  });
+    embedder = await createEmbedder(config);
+    expectedDimension = embedder.dimension;
+    console.log(`[Test] Embedding model loaded (${expectedDimension}d)`);
+  }, 120000);
 
   describe('Model Loading', () => {
     it('should load the embedding model', () => {
@@ -30,8 +32,9 @@ describe('Local Embedding Model', () => {
       expect(typeof embedder).toBe('function');
     });
     
-    it('should use the configured model', () => {
-      expect(config.embeddingModel).toBe('Xenova/all-MiniLM-L6-v2');
+    it('should have model metadata', () => {
+      expect(embedder.modelName).toBeDefined();
+      expect(embedder.dimension).toBeGreaterThan(0);
     });
   });
 
@@ -49,8 +52,8 @@ describe('Local Embedding Model', () => {
       const output = await embedder(text, { pooling: 'mean', normalize: true });
       const vector = Array.from(output.data);
       
-      // MiniLM-L6 produces 384-dimensional vectors
-      expect(vector.length).toBe(384);
+      // Dimension depends on model (MRL: configurable, MiniLM: 384)
+      expect(vector.length).toBe(expectedDimension);
     });
     
     it('should return normalized vectors', async () => {
@@ -85,7 +88,7 @@ describe('Local Embedding Model', () => {
       const output = await embedder(code, { pooling: 'mean', normalize: true });
       const vector = Array.from(output.data);
       
-      expect(vector.length).toBe(384);
+      expect(vector.length).toBe(expectedDimension);
     });
     
     it('should handle multiline text', async () => {
@@ -93,7 +96,7 @@ describe('Local Embedding Model', () => {
       const output = await embedder(multiline, { pooling: 'mean', normalize: true });
       const vector = Array.from(output.data);
       
-      expect(vector.length).toBe(384);
+      expect(vector.length).toBe(expectedDimension);
     });
     
     it('should handle special characters', async () => {
@@ -101,7 +104,7 @@ describe('Local Embedding Model', () => {
       const output = await embedder(special, { pooling: 'mean', normalize: true });
       const vector = Array.from(output.data);
       
-      expect(vector.length).toBe(384);
+      expect(vector.length).toBe(expectedDimension);
     });
   });
 
