@@ -120,9 +120,6 @@ Detailed setup instructions for your preferred environment:
 
 Add the server configuration to the `mcpServers` object in your config file:
 
-<<<<<<< HEAD
-### Option 1: Absolute Path (Recommended)
-=======
 ### Option 1: Zero-Config (Recommended)
 
 The simplest way to use the server is via `npx`. **No arguments needed.** The server will automatically detect your project root from the IDE's handshake protocol.
@@ -156,7 +153,6 @@ The simplest way to use the server is via `npx`. **No arguments needed.** The se
 ### Option 2: Explicit Configuration (Robust Fallback)
 
 If Zero-Config doesn't work (e.g., folder not created), or if you are using a client that doesn't send workspace context (like Claude Desktop or some Antigravity versions), use explicit arguments:
->>>>>>> pr-4-branch
 
 ```json
 {
@@ -208,23 +204,9 @@ Use this option ONLY if you need to search code from *another* project while wor
 }
 ```
 
-<<<<<<< HEAD
-### Option 3: Auto-Detection (May Not Work)
+### Compatibility Note: Dynamic Variables
 
 > ⚠️ **Warning:** Most MCP clients (including Antigravity and Claude Desktop) do NOT support `${workspaceFolder}` variable expansion. The server will exit with an error if the variable is not expanded.
-
-For clients that support dynamic variables (VS Code, Cursor):
-
-```json
-{
-  "mcpServers": {
-    "smart-coding-mcp": {
-      "command": "smart-coding-mcp",
-      "args": ["--workspace", "${workspaceFolder}"]
-    }
-  }
-}
-```
 
 | Client           | Supports `${workspaceFolder}` |
 | ---------------- | ----------------------------- |
@@ -233,7 +215,6 @@ For clients that support dynamic variables (VS Code, Cursor):
 | Antigravity      | No ❌                         |
 | Claude Desktop   | No ❌                         |
 
-=======
 ### Troubleshooting & CLI
 
 To see all available options and environment variables, you can run the server with the `--help` flag:
@@ -242,7 +223,6 @@ To see all available options and environment variables, you can run the server w
 npx smart-coding-mcp --help
 ```
 
->>>>>>> pr-4-branch
 ## Environment Variables
 
 Override configuration settings via environment variables in your MCP config:

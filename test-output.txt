@@ -1,0 +1,166 @@
+=== Testing Verse Chunker ===
+
+Found 10 chunks:
+
+--- Chunk 1 ---
+Type: enum
+Lines: 5-5
+Tokens: 16
+Signature: rotation_direction<public>:= enum{Left, Right}
+Content:
+```
+rotation_direction<public>:= enum{Left, Right}
+```
+
+--- Chunk 2 ---
+Type: struct
+Lines: 8-12
+Tokens: 45
+Signature: fguid<public> := struct<concrete><computes><persistable>:
+Content:
+```
+fguid<public> := struct<concrete><computes><persistable>:
+    Meta : int = 0 
+    Val : int = 0
+
+# Multi-line function with effect specifiers
+```
+
+--- Chunk 3 ---
+Type: function
+Lines: 13-23
+Tokens: 59
+Signature: Pack4Ints<public>(
+Content:
+```
+Pack4Ints<public>(
+    A: int,
+    B: int,
+    C: int,
+    D: int
+)<decides><transacts>: int =
+    # Pack 4 integers into one
+    result := A + B + C + D
+    result
+
+# Extension method
+```
+
+--- Chunk 4 ---
+Type: extension
+Lines: 24-27
+Tokens: 48
+Signature: (Array:[]t where t:type).Random<public>()<decides><transacts>:t =
+Content:
+```
+(Array:[]t where t:type).Random<public>()<decides><transacts>:t =
+    Array[GetRandomInt(0, Array.Length - 1)]
+
+# Class with methods
+```
+
+--- Chunk 5 ---
+Type: class
+Lines: 28-44
+Tokens: 115
+Signature: custom_timer<public> := class<concrete>:
+Content:
+```
+custom_timer<public> := class<concrete>:
+    @editable
+    TimerTick<public> : float = 1.0
+    
+    var CurrentTime<public> : float = 0.0
+    
+    GetIsActive<public>()<transacts>:logic=
+        IsActive
+    
+    StartTimer<public>(?MaybeDuration:float = 0.0)<suspends>:void=
+        loop:
+            Sleep(TimerTick)
+            set CurrentTime += TimerTick
+            if (CurrentTime > MaybeDuration):
+                break
+
+# Interface definition
+```
+
+--- Chunk 6 ---
+Type: method
+Lines: 34-36
+Tokens: 18
+Signature: custom_timer::GetIsActive<public>()<transacts>:logic=
+Content:
+```
+    GetIsActive<public>()<transacts>:logic=
+        IsActive
+    
+```
+
+--- Chunk 7 ---
+Type: method
+Lines: 37-44
+Tokens: 57
+Signature: custom_timer::StartTimer<public>(?MaybeDuration:float = 0.0)<suspends>:void=
+Content:
+```
+    StartTimer<public>(?MaybeDuration:float = 0.0)<suspends>:void=
+        loop:
+            Sleep(TimerTick)
+            set CurrentTime += TimerTick
+            if (CurrentTime > MaybeDuration):
+                break
+
+# Interface definition
+```
+
+--- Chunk 8 ---
+Type: interface
+Lines: 45-51
+Tokens: 58
+Signature: interface_power_node := interface:
+Content:
+```
+interface_power_node := interface:
+    GetBasePowerOutput()<reads>:float
+    GetEfficiency()<reads>:float
+    GetPriority()<reads>:int
+    IsPowered()<reads>:logic
+
+# Class implementing interface
+```
+
+--- Chunk 9 ---
+Type: class
+Lines: 52-61
+Tokens: 89
+Signature: cmp_build_system := class(world_component, interface_build_system):
+Content:
+```
+cmp_build_system := class(world_component, interface_build_system):
+    @editable:
+        Categories := array{InputsMessage}
+    Prop_Place : ?input_trigger_device = false
+    
+    OnGameStart<override>()<suspends>:void=
+        (super:)OnGameStart()
+        # Initialize the build system
+        Log("Build system initialized")
+
+```
+
+--- Chunk 10 ---
+Type: method
+Lines: 57-61
+Tokens: 43
+Signature: cmp_build_system::OnGameStart<override>()<suspends>:void=
+Content:
+```
+    OnGameStart<override>()<suspends>:void=
+        (super:)OnGameStart()
+        # Initialize the build system
+        Log("Build system initialized")
+
+```
+
+=== Test Complete ===

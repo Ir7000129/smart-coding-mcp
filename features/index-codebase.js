@@ -683,22 +683,14 @@ export class CodebaseIndexer {
       const vectorStore = this.cache.getVectorStore();
       return {
         skipped: false,
-<<<<<<< HEAD
-        filesProcessed: changedFiles,
-=======
-        filesProcessed: filesToProcess.length,
->>>>>>> pr-4-branch
+        filesProcessed: processedFiles,
         chunksCreated: totalChunks,
         totalFiles: new Set(vectorStore.map(v => v.file)).size,
         totalChunks: vectorStore.length,
         duration: totalTime,
-<<<<<<< HEAD
-        message: changedFiles > 0
-          ? `Indexed ${changedFiles} files (${totalChunks} chunks, ${skippedFiles} unchanged) in ${totalTime}s`
-          : `All ${skippedFiles} files up to date`
-=======
-        message: `Indexed ${filesToProcess.length} files (${totalChunks} chunks) in ${totalTime}s`
->>>>>>> pr-4-branch
+        message: processedFiles > 0
+          ? `Indexed ${processedFiles} files (${totalChunks} chunks) in ${totalTime}s`
+          : `All files up to date`
       };
     } finally {
       this.isIndexing = false;
