@@ -240,10 +240,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // Ensure model and cache are loaded before handling any tool
   await ensureInitialized();
-  
+
   for (const feature of features) {
     const toolDef = feature.module.getToolDefinition(config);
-    
+
     if (request.params.name === toolDef.name) {
       return await feature.handler(request, feature.instance);
     }
@@ -277,6 +277,12 @@ process.on("SIGINT", async () => {
     console.error("[Server] File watcher stopped");
   }
 
+  // Stop workers
+  if (indexer) {
+    indexer.terminateWorkers();
+    console.error("[Server] Workers terminated");
+  }
+
   // Save cache
   if (cache) {
     await cache.save();
@@ -289,6 +295,9 @@ process.on("SIGINT", async () => {
 
 process.on("SIGTERM", async () => {
   console.error("\n[Server] Received SIGTERM, shutting down...");
+  if (indexer) {
+    indexer.terminateWorkers();
+  }
   process.exit(0);
 });
 
