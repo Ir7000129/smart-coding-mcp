@@ -278,6 +278,15 @@ flowchart TB
 | **Chunking**  | Smart regex / Tree-sitter AST         |
 | **Search**    | Cosine similarity + exact match boost |
 
+### Supported Languages
+
+- **Web**: JavaScript, TypeScript, HTML, CSS, PHP
+- **System**: C, C++, Rust, Go, Swift
+- **Data/Config**: JSON, YAML, XML, SQL, CSV
+- **Game Dev**: UEFN Verse (`.verse`), Lua, C#
+- **Scripting**: Python, Ruby, Shell
+- **Docs**: Markdown, Text
+
 ### Search Flow
 
 Query → Vector embedding → Cosine similarity → Ranked results
