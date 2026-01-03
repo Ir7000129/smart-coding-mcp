@@ -21,10 +21,10 @@ export class CodebaseIndexer {
     this.workerReady = [];
     this.isIndexing = false;
 
-    // Initialize resource throttling (HEAD)
+    // Initialize resource throttling
     this.throttle = new ResourceThrottle(config);
 
-    // Track indexing status for progressive search (HEAD)
+    // Track indexing status for progressive search
     this.indexingStatus = {
       inProgress: false,
       totalFiles: 0,
@@ -44,16 +44,15 @@ export class CodebaseIndexer {
    * Initialize worker thread pool for parallel embedding
    */
   async initializeWorkers() {
-    // Force single-threaded mode for nomic models (transformers.js v3 worker thread issue) (HEAD)
+    // Force single-threaded mode for nomic models (transformers.js v3 worker thread issue)
     const isNomicModel = this.config.embeddingModel?.includes('nomic');
     if (isNomicModel) {
       console.error("[Indexer] Single-threaded mode (nomic model - workers disabled for stability)");
       return;
     }
 
-    // Use throttled worker count (HEAD)
     const numWorkers = this.config.workerThreads === "auto"
-      ? this.throttle.maxWorkers
+      ? this.throttle.maxWorkers  // Use throttled worker count
       : this.throttle.getWorkerCount(this.config.workerThreads);
 
     // Only use workers if we have more than 1 CPU
@@ -454,23 +453,19 @@ export class CodebaseIndexer {
       percentage: 0
     };
 
+    // Declare counters outside try block so they're accessible in finally
     let processedFiles = 0;
     let skippedFiles = 0;
-
-    // We'll calculate these from results
-    let totalChunks = 0;
 
     try {
       if (force) {
         console.error("[Indexer] Force reindex requested: clearing cache");
         this.cache.setVectorStore([]);
-        this.cache.fileHashes = new Map();
+        this.cache.clearAllFileHashes();
       }
 
       const totalStartTime = Date.now();
-
-      console.error(`\n=== SMART CODING MCP: STARTING INDEXING ===`);
-      console.error(`[Indexer] Target Directory: ${this.config.searchDirectory}`);
+      console.error(`[Indexer] Starting optimized indexing in ${this.config.searchDirectory}...`);
 
       // Step 1: Fast file discovery with fdir
       const files = await this.discoverFiles();
@@ -482,12 +477,12 @@ export class CodebaseIndexer {
       }
 
       // Send progress: discovery complete
-      this.sendProgress(1, 100, `Discovered ${files.length} files`);
+      this.sendProgress(5, 100, `Discovered ${files.length} files`);
 
       // Step 1.5: Prune deleted or excluded files from cache
       if (!force) {
         const currentFilesSet = new Set(files);
-        const cachedFiles = Array.from(this.cache.fileHashes.keys());
+        const cachedFiles = Array.from(this.cache.getAllFileHashes().keys());
         let prunedCount = 0;
 
         for (const cachedFile of cachedFiles) {
@@ -502,42 +497,19 @@ export class CodebaseIndexer {
           if (this.config.verbose) {
             console.error(`[Indexer] Pruned ${prunedCount} deleted/excluded files from index`);
           }
+          // If we pruned files, we should save these changes even if no other files changed
         }
       }
 
-      // Step 2: Pre-filter unchanged files (early hash check)
-      // This is efficient and keeps the "adaptive batches" loop cleaner
-      let filesToProcess = await this.preFilterFiles(files);
-
-      // Update skipped count
-      skippedFiles = files.length - filesToProcess.length;
-
-      if (filesToProcess.length === 0) {
-        console.error("[Indexer] All files unchanged, nothing to index");
-        this.sendProgress(100, 100, "All files up to date");
-        await this.cache.save();
-        const vectorStore = this.cache.getVectorStore();
-        return {
-          skipped: false,
-          filesProcessed: 0,
-          chunksCreated: 0,
-          totalFiles: new Set(vectorStore.map(v => v.file)).size,
-          totalChunks: vectorStore.length,
-          message: "All files up to date"
-        };
-      }
-
-      // Send progress: filtering complete
-      this.sendProgress(10, 100, `Processing ${filesToProcess.length} changed files`);
-
-      // Step 3: Determine batch size based on project size
-      const adaptiveBatchSize = filesToProcess.length > 10000 ? 500 :
-        filesToProcess.length > 1000 ? 200 :
+      // Step 2: Process files in adaptive batches with lazy filtering
+      // Instead of pre-filtering all files (expensive), check hashes during processing
+      const adaptiveBatchSize = files.length > 10000 ? 500 :
+        files.length > 1000 ? 200 :
           this.config.batchSize || 100;
 
-      console.error(`[Indexer] Processing ${filesToProcess.length} files (batch size: ${adaptiveBatchSize})`);
+      console.error(`[Indexer] Processing ${files.length} files with lazy filtering (batch size: ${adaptiveBatchSize})`);
 
-      // Step 4: Initialize worker threads (always use when multi-core available)
+      // Step 3: Initialize worker threads (always use when multi-core available)
       const useWorkers = os.cpus().length > 1;
 
       if (useWorkers) {
@@ -547,40 +519,69 @@ export class CodebaseIndexer {
         console.error(`[Indexer] Single-threaded mode (single-core system)`);
       }
 
+      let totalChunks = 0;
       let batchCounter = 0;  // Track batches for incremental saves
 
-      // Step 5: Process files in adaptive batches
-      for (let i = 0; i < filesToProcess.length; i += adaptiveBatchSize) {
-        const batch = filesToProcess.slice(i, i + adaptiveBatchSize);
+      // Update total file count for status tracking (estimated, will adjust as we filter)
+      this.indexingStatus.totalFiles = files.length;
 
-        // Generate all chunks for this batch
+      // Step 4: Process files in adaptive batches with inline lazy filtering
+      for (let i = 0; i < files.length; i += adaptiveBatchSize) {
+        const batch = files.slice(i, i + adaptiveBatchSize);
+
+        // Lazy filter and generate chunks for this batch
         const allChunks = [];
         const fileHashes = new Map();
 
-        // Note: Content is already read in preFilterFiles but lost to save memory. 
-        // We need to read again or refactor preFilter. 
-        // My implementation of `preFilterFiles` above (from Step 33/117) *returns* objects {file, content, hash}.
-        // So `batch` contains {file, content, hash}.
+        for (const file of batch) {
+          try {
+            const stats = await fs.stat(file);
 
-        for (const { file, content, hash } of batch) {
-          // Remove old chunks for this file
-          this.cache.removeFileFromStore(file);
+            // Skip directories and oversized files
+            if (stats.isDirectory()) continue;
+            if (stats.size > this.config.maxFileSize) {
+              skippedFiles++;
+              continue;
+            }
 
-          const chunks = smartChunk(content, file, this.config);
+            // Read content and check hash
+            const content = await fs.readFile(file, "utf-8");
+            const hash = hashContent(content);
 
-          for (const chunk of chunks) {
-            allChunks.push({
-              file,
-              text: chunk.text,
-              startLine: chunk.startLine,
-              endLine: chunk.endLine,
-              hash
-            });
+            // Skip unchanged files inline (lazy check)
+            if (this.cache.getFileHash(file) === hash) {
+              skippedFiles++;
+              continue;
+            }
+
+            // File changed - remove old chunks and prepare new ones
+            this.cache.removeFileFromStore(file);
+            const chunks = smartChunk(content, file, this.config);
+
+            for (const chunk of chunks) {
+              allChunks.push({
+                file,
+                text: chunk.text,
+                startLine: chunk.startLine,
+                endLine: chunk.endLine,
+                hash
+              });
+            }
+
+            fileHashes.set(file, hash);
+          } catch (error) {
+            // Skip files with read errors
+            skippedFiles++;
+            if (this.config.verbose) {
+              console.error(`[Indexer] Error reading ${path.basename(file)}: ${error.message}`);
+            }
           }
-          fileHashes.set(file, hash);
         }
 
-        if (allChunks.length === 0) continue;
+        // Skip this batch if no chunks to process
+        if (allChunks.length === 0) {
+          continue;
+        }
 
         // Process chunks (with workers if available, otherwise single-threaded)
         let results;
@@ -626,11 +627,11 @@ export class CodebaseIndexer {
         processedFiles += filesProcessedInBatch.size;
         batchCounter++;
 
-        // Update indexing status
-        const estimatedTotal = filesToProcess.length;
+        // Update indexing status for progressive search
+        const estimatedTotal = files.length - skippedFiles;
         this.indexingStatus.processedFiles = processedFiles;
-        this.indexingStatus.totalFiles = files.length; // Total discovered
-        this.indexingStatus.percentage = Math.floor((processedFiles / estimatedTotal) * 100);
+        this.indexingStatus.totalFiles = Math.max(estimatedTotal, processedFiles);
+        this.indexingStatus.percentage = estimatedTotal > 0 ? Math.floor((processedFiles / estimatedTotal) * 100) : 100;
 
         // Incremental save to SQLite (every N batches)
         const saveInterval = this.config.incrementalSaveInterval || 5;
@@ -640,24 +641,24 @@ export class CodebaseIndexer {
           }
         }
 
-        // Apply CPU throttling (delay between batches) (HEAD)
+        // Apply CPU throttling (delay between batches)
         await this.throttle.throttledBatch(null);
-
-        // Progress indicator every batch
-        if (processedFiles % Math.max(1, adaptiveBatchSize) === 0 || i + adaptiveBatchSize >= filesToProcess.length) {
-          const elapsed = ((Date.now() - totalStartTime) / 1000).toFixed(1);
-          const rate = (processedFiles / parseFloat(elapsed)).toFixed(0);
-          console.error(`[Indexer] Progress: ${processedFiles}/${filesToProcess.length} changed files (${rate} files/sec)`);
-
-          // Send MCP progress notification (10-95% range for batch processing)
-          const progressPercent = Math.min(95, Math.floor(10 + (processedFiles / filesToProcess.length) * 85));
-          this.sendProgress(progressPercent, 100, `Indexed ${processedFiles}/${filesToProcess.length} changed files (${rate}/sec)`);
-        }
 
         // MEMORY FIX: Force GC between batches
         if (global.gc) {
           if (this.config.verbose) console.error('[Indexer] Triggering manual GC');
           global.gc();
+        }
+
+        // Progress indicator every batch
+        if (processedFiles > 0 && (processedFiles % (adaptiveBatchSize * 2) === 0 || i + adaptiveBatchSize >= files.length)) {
+          const elapsed = ((Date.now() - totalStartTime) / 1000).toFixed(1);
+          const rate = (processedFiles / parseFloat(elapsed)).toFixed(0);
+          console.error(`[Indexer] Progress: ${processedFiles} changed, ${skippedFiles} skipped (${rate} files/sec)`);
+
+          // Send MCP progress notification (10-95% range for batch processing)
+          const progressPercent = Math.min(95, Math.floor(10 + (i / files.length) * 85));
+          this.sendProgress(progressPercent, 100, `Indexed ${processedFiles} files, ${skippedFiles} skipped (${rate}/sec)`);
         }
       }
 
@@ -667,35 +668,35 @@ export class CodebaseIndexer {
       }
 
       const totalTime = ((Date.now() - totalStartTime) / 1000).toFixed(1);
-
-      console.error(`[Indexer] Complete: ${totalChunks} chunks from ${processedFiles} changed files in ${totalTime}s`);
-      console.error(`=== SMART CODING MCP: INDEXING COMPLETE ===`);
+      const changedFiles = processedFiles;
+      console.error(`[Indexer] Complete: ${totalChunks} chunks from ${changedFiles} changed files (${skippedFiles} unchanged) in ${totalTime}s`);
 
       // Mark indexing as complete
       this.indexingStatus.inProgress = false;
       this.indexingStatus.percentage = 100;
 
       // Send completion progress
-      this.sendProgress(100, 100, `Complete: ${totalChunks} chunks from ${processedFiles} changed files in ${totalTime}s`);
+      const summaryMsg = changedFiles > 0
+        ? `Complete: ${totalChunks} chunks from ${changedFiles} changed files (${skippedFiles} unchanged) in ${totalTime}s`
+        : `Complete: No files changed (${skippedFiles} files up to date)`;
+      this.sendProgress(100, 100, summaryMsg);
 
       await this.cache.save();
 
       const vectorStore = this.cache.getVectorStore();
       return {
         skipped: false,
-        filesProcessed: processedFiles,
+        filesProcessed: changedFiles,
         chunksCreated: totalChunks,
         totalFiles: new Set(vectorStore.map(v => v.file)).size,
         totalChunks: vectorStore.length,
         duration: totalTime,
-        message: processedFiles > 0
-          ? `Indexed ${processedFiles} files (${totalChunks} chunks) in ${totalTime}s`
-          : `All files up to date`
+        message: changedFiles > 0
+          ? `Indexed ${changedFiles} files (${totalChunks} chunks, ${skippedFiles} unchanged) in ${totalTime}s`
+          : `All ${skippedFiles} files up to date`
       };
     } finally {
       this.isIndexing = false;
-      // Ensure workers are terminated even if an error occurred
-      this.terminateWorkers();
       // Adjust estimated total after completion
       this.indexingStatus.totalFiles = processedFiles + skippedFiles;
     }
